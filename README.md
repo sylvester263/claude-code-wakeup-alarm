@@ -11,7 +11,8 @@ Claude needs permission  →  wait 10s  →  still not back?  →  🔊 VIDEO
                                       ↘  you're typing?   →  stays quiet
 ```
 
-macOS only, for now. Idle detection uses `IOHIDSystem`.
+macOS only, for now — idle detection uses `IOHIDSystem`. See
+[Porting to Windows or Linux](#porting-to-windows-or-linux) if you want to change that.
 
 ## Install
 
@@ -105,6 +106,36 @@ restarted Claude Code since installing.
 
 **No sound.** Set `WAKEUP_VOLUME=70` so it turns the volume up itself and puts it back
 afterwards.
+
+## Porting to Windows or Linux
+
+macOS-only today, but not deeply so — the design is portable and only four calls aren't.
+PRs welcome.
+
+| Piece | What macOS uses | What a port needs |
+|---|---|---|
+| Idle detection | `ioreg -c IOHIDSystem` (`lib/common.sh`) | **Windows:** `GetLastInputInfo` from `user32.dll` via P/Invoke — returns ms since last input, no dependencies. **Linux:** `xprintidle` on X11; Wayland has no portable equivalent and is the real blocker |
+| Playback | `ffplay -fs -autoexit` | Nothing — `ffplay` already runs everywhere |
+| Fallback player | QuickTime via `osascript` | **Windows:** a WPF `MediaElement` window (fullscreen + topmost, ~30 lines of PowerShell). **Linux:** `mpv --fs` |
+| Volume | `osascript set volume` | **Windows:** no clean one-liner. Either the `IAudioEndpointVolume` COM interface (~50 lines of inline C#) or `SendKeys` volume-up nudges, which can't restore the previous level. Simplest honest answer is to make `WAKEUP_VOLUME` a documented no-op. **Linux:** `pactl set-sink-volume` |
+| Detaching the worker | `nohup … &` (`wakeup.sh`) | **Windows:** `Start-Process -WindowStyle Hidden`. The `mkdir` lock is atomic on NTFS too, so that logic carries over unchanged |
+| JSON parsing | `jq` | **Windows:** `ConvertFrom-Json` is built into PowerShell, so the dependency disappears |
+
+Everything else — the grace period, the idle gate, the atomic lock, event filtering, the
+config — is already OS-agnostic.
+
+On the Claude Code side, Windows is fine: hooks default to Git Bash and fall back to
+PowerShell when Git for Windows isn't installed, and a hook entry can name its shell
+explicitly with `"shell": "powershell"`.
+
+**Recommended approach:** a PowerShell twin (`wakeup.ps1` + `lib/play.ps1`) installed with
+`"shell": "powershell"`, rather than reusing these bash scripts under Git Bash. Git Bash
+would force a dependency *and* make the once-per-second idle check spawn `powershell.exe`
+every tick.
+
+Whatever the platform, `WAKEUP_IDLE_OVERRIDE` and `WAKEUP_IDLE_OVERRIDE_FILE` (see
+`idle_secs` in `lib/common.sh`) are the seams that let the whole flow be tested without
+touching real idle time — `tests/run-tests.sh` is built on them and a port should be too.
 
 ## License
 
