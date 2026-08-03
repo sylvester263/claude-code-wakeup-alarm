@@ -1,4 +1,4 @@
-# claude-code-wakeup
+# claude-code-wakeup-alarm
 
 You give Claude Code a long task. You pick up your phone. Twenty minutes later you look
 back at your laptop and it's been sitting on a permission prompt for nineteen of them.
@@ -17,8 +17,8 @@ macOS only, for now — idle detection uses `IOHIDSystem`. See
 ## Install
 
 ```bash
-git clone https://github.com/rafcopy/claude-code-wakeup.git
-cd claude-code-wakeup
+git clone https://github.com/rafcopy/claude-code-wakeup-alarm.git
+cd claude-code-wakeup-alarm
 ./install.sh          # or ./install.sh --project for this repo only
 ```
 
